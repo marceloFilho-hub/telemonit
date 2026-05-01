@@ -119,9 +119,9 @@ def test_resolver_traduz_drive_prefix_em_token_e_chat(mocker, monkeypatch):
 def test_construir_evento_traz_campos_obrigatorios():
     evento = notificar._construir_evento(
         nivel="erro", titulo="t", detalhes="d", traceback=None,
-        contexto={"a": 1}, projeto="px",
+        contexto={"a": 1}, projeto="px", run_id=None,
     )
-    for campo in ("timestamp", "projeto", "host", "nivel", "titulo", "detalhes", "contexto"):
+    for campo in ("timestamp", "projeto", "host", "nivel", "titulo", "detalhes", "contexto", "run_id"):
         assert campo in evento
     assert evento["projeto"] == "px"
     assert evento["nivel"] == "erro"
@@ -131,7 +131,7 @@ def test_construir_evento_traz_campos_obrigatorios():
 def test_formatar_telegram_inclui_titulo_e_contexto():
     evento = notificar._construir_evento(
         nivel="erro", titulo="Pipe X", detalhes="Detalhe",
-        traceback=None, contexto={"empresa": "ACME"}, projeto="proj",
+        traceback=None, contexto={"empresa": "ACME"}, projeto="proj", run_id=None,
     )
     msg = notificar._formatar_telegram(evento)
     assert "Pipe X" in msg

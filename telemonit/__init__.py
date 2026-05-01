@@ -1,6 +1,6 @@
 """telemonit — notificações centralizadas (Telegram + Drive JSONL)."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from . import config, excepthook, notificar
 from .config import configurar
