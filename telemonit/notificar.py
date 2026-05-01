@@ -12,13 +12,31 @@ para garantir que um problema de notificação não derrube o pipeline cliente.
 from __future__ import annotations
 
 import socket
+import tempfile
 from datetime import datetime, timezone
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 from . import config, drive_resolver, event_log, telegram_client, throttle
 
 load_dotenv()
+
+# Log local de fallback: quando _emitir engolir uma exceção interna,
+# grava uma linha aqui para que falhas silenciosas deixem rastro.
+_FALLBACK_LOG_PATH = Path(tempfile.gettempdir()) / "telemonit_fallback.log"
+
+
+def _registrar_fallback(motivo: str, contexto: dict | None = None) -> None:
+    """Grava linha em log de fallback para diagnóstico de falhas internas."""
+    try:
+        linha = f"{datetime.now(timezone.utc).isoformat()} | {motivo}"
+        if contexto:
+            linha += f" | {contexto}"
+        with _FALLBACK_LOG_PATH.open("a", encoding="utf-8") as f:
+            f.write(linha + "\n")
+    except Exception:
+        pass
 
 NIVEL_INFO = "info"
 NIVEL_ALERTA = "alerta"
@@ -94,11 +112,14 @@ def _emitir(
             nivel, titulo, detalhes, traceback, contexto, cfg["projeto"], run_id
         )
 
-        # 1) Persistência JSONL (best-effort, sempre)
+        # 1) Persistência JSONL (best-effort, sempre — com fallback local)
         try:
             event_log.append_event(cfg["drive_folder"], cfg["projeto"], evento)
-        except Exception:
-            pass
+        except Exception as exc:
+            _registrar_fallback(
+                f"event_log falhou: {type(exc).__name__}: {exc}",
+                {"nivel": nivel, "titulo": titulo, "projeto": cfg.get("projeto")},
+            )
 
         # 2) Throttle (apenas para alerta) — chave inclui run_id quando presente
         if com_throttle:
@@ -114,12 +135,23 @@ def _emitir(
             token = drive_resolver.resolver(cfg["tg_token_raw"])
             chat_id = drive_resolver.resolver(cfg["tg_chat_id_raw"])
             mensagem = _formatar_telegram(evento)
-            telegram_client.send_text(token, chat_id, mensagem)
-        except Exception:
-            pass
-    except Exception:
-        # Última linha de defesa: lib jamais quebra o caller
-        pass
+            ok = telegram_client.send_text(token, chat_id, mensagem)
+            if not ok:
+                _registrar_fallback(
+                    "telegram_client.send_text retornou False (resposta != 200, token/chat invalido ou rede)",
+                    {"nivel": nivel, "titulo": titulo, "projeto": cfg.get("projeto")},
+                )
+        except Exception as exc:
+            _registrar_fallback(
+                f"telegram falhou: {type(exc).__name__}: {exc}",
+                {"nivel": nivel, "titulo": titulo, "projeto": cfg.get("projeto")},
+            )
+    except Exception as exc:
+        # Última linha de defesa: lib jamais quebra o caller, mas deixa rastro
+        _registrar_fallback(
+            f"_emitir engoliu exception: {type(exc).__name__}: {exc}",
+            {"nivel": nivel, "titulo": titulo},
+        )
 
 
 def erro(

@@ -1,6 +1,6 @@
 [project]
 name = "telemonit"
-version = "0.2.0"
+version = "0.3.0"
 description = "Biblioteca de notificações centralizadas (Telegram + Drive JSONL) para automações do Marcelo"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -16,9 +16,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Bootstrap de observabilidade reusável (telemonit.observability.bootstrap)
+# Use: pip install "telemonit[observability] @ git+https://github.com/marceloFilho-hub/telemonit.git"
+observability = [
+    "loguru>=0.7",
+]
 dev = [
     "pytest>=8.0",
     "pytest-mock>=3.12",
+    "loguru>=0.7",
 ]
 
 [project.scripts]

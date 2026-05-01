@@ -53,10 +53,18 @@ def test_append_event_atualiza_arquivo_existente(mocker):
     assert conteudo_final.endswith(b"\n")
 
 
-def test_append_event_retorna_false_em_excecao(mocker):
+def test_append_event_drive_falhando_grava_em_fallback_e_retorna_true(mocker, tmp_path, monkeypatch):
+    """Comportamento novo (v0.3.0): Drive offline cai no fallback local em
+    `~/.telemonit/<projeto>/`. Audit trail é preservado e retorna True.
+
+    Cobertura detalhada do fallback em `tests/test_event_log_fallback.py`.
+    """
+    monkeypatch.setattr(event_log, "_PASTA_FALLBACK_HOME", tmp_path)
     mocker.patch.object(
         event_log.drive_resolver,
         "_drive_service",
         side_effect=RuntimeError("SA não configurada"),
     )
-    assert event_log.append_event("folder", "proj", {"x": 1}) is False
+    assert event_log.append_event("folder", "proj", {"x": 1}) is True
+    arquivo_local = event_log.caminho_fallback_local("proj")
+    assert arquivo_local.exists()
