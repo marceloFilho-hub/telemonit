@@ -2,6 +2,17 @@
 
 __version__ = "0.1.0"
 
-from . import excepthook, notificar
+from . import config, excepthook, notificar
+from .config import configurar
+from .notificar import alerta, erro, info
 
-__all__ = ["notificar", "excepthook", "__version__"]
+__all__ = [
+    "configurar",
+    "erro",
+    "alerta",
+    "info",
+    "config",
+    "notificar",
+    "excepthook",
+    "__version__",
+]

@@ -11,13 +11,12 @@ para garantir que um problema de notificação não derrube o pipeline cliente.
 
 from __future__ import annotations
 
-import os
 import socket
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 
-from . import drive_resolver, event_log, telegram_client, throttle
+from . import config, drive_resolver, event_log, telegram_client, throttle
 
 load_dotenv()
 
@@ -29,16 +28,6 @@ _PRIORIDADE_NIVEL = {NIVEL_INFO: 0, NIVEL_ALERTA: 1, NIVEL_ERRO: 2}
 _THROTTLE_TTL_SEGUNDOS = 300
 
 _LIMITE_TRACEBACK_CHARS = 1500
-
-
-def _config() -> dict:
-    return {
-        "projeto": os.environ.get("MONITOR_PROJETO", "desconhecido"),
-        "tg_token_raw": os.environ.get("MONITOR_TG_TOKEN", ""),
-        "tg_chat_id_raw": os.environ.get("MONITOR_TG_CHAT_ID", ""),
-        "drive_folder": os.environ.get("MONITOR_DRIVE_LOG_FOLDER", ""),
-        "nivel_minimo": os.environ.get("MONITOR_NIVEL", NIVEL_ALERTA).lower(),
-    }
 
 
 def _deve_enviar_telegram(nivel: str, nivel_minimo: str) -> bool:
@@ -97,7 +86,7 @@ def _emitir(
     com_throttle: bool,
 ) -> None:
     try:
-        cfg = _config()
+        cfg = config.obter()
         evento = _construir_evento(
             nivel, titulo, detalhes, traceback, contexto, cfg["projeto"]
         )
