@@ -1,6 +1,6 @@
 """API pública: erro(), alerta(), info().
 
-Comportamento (PLANO.md):
+Comportamento:
 - erro:   sempre dispara Telegram + grava JSONL
 - alerta: dispara Telegram + grava JSONL, com throttle de 5 min por chave
 - info:   apenas grava JSONL (Telegram somente se MONITOR_NIVEL=info)
@@ -41,10 +41,12 @@ def _construir_evento(
     traceback: str | None,
     contexto: dict | None,
     projeto: str,
+    run_id: str | None,
 ) -> dict:
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "projeto": projeto,
+        "run_id": run_id,
         "host": socket.gethostname(),
         "nivel": nivel,
         "titulo": titulo,
@@ -58,10 +60,10 @@ def _formatar_telegram(evento: dict) -> str:
     icone = {NIVEL_ERRO: "🚨", NIVEL_ALERTA: "⚠️", NIVEL_INFO: "ℹ️"}.get(
         evento["nivel"], "•"
     )
-    linhas = [
-        f"{icone} *{evento['nivel'].upper()}* — `{evento['projeto']}`",
-        f"*{evento['titulo']}*",
-    ]
+    cabecalho = f"{icone} *{evento['nivel'].upper()}* — `{evento['projeto']}`"
+    if evento.get("run_id"):
+        cabecalho += f" • run `{evento['run_id']}`"
+    linhas = [cabecalho, f"*{evento['titulo']}*"]
     if evento.get("detalhes"):
         linhas += ["", evento["detalhes"]]
     if evento.get("contexto"):
@@ -83,12 +85,13 @@ def _emitir(
     detalhes: str,
     traceback: str | None,
     contexto: dict | None,
+    run_id: str | None,
     com_throttle: bool,
 ) -> None:
     try:
         cfg = config.obter()
         evento = _construir_evento(
-            nivel, titulo, detalhes, traceback, contexto, cfg["projeto"]
+            nivel, titulo, detalhes, traceback, contexto, cfg["projeto"], run_id
         )
 
         # 1) Persistência JSONL (best-effort, sempre)
@@ -97,9 +100,10 @@ def _emitir(
         except Exception:
             pass
 
-        # 2) Throttle (apenas para alerta)
+        # 2) Throttle (apenas para alerta) — chave inclui run_id quando presente
         if com_throttle:
-            chave = f"{nivel}:{cfg['projeto']}:{titulo}"
+            sufixo_run = f":{run_id}" if run_id else ""
+            chave = f"{nivel}:{cfg['projeto']}{sufixo_run}:{titulo}"
             if not throttle.deve_emitir(chave, _THROTTLE_TTL_SEGUNDOS):
                 return
 
@@ -123,24 +127,27 @@ def erro(
     detalhes: str = "",
     traceback: str | None = None,
     contexto: dict | None = None,
+    run_id: str | None = None,
 ) -> None:
     """Notifica erro. Sempre dispara Telegram + grava JSONL."""
-    _emitir(NIVEL_ERRO, titulo, detalhes, traceback, contexto, com_throttle=False)
+    _emitir(NIVEL_ERRO, titulo, detalhes, traceback, contexto, run_id, com_throttle=False)
 
 
 def alerta(
     titulo: str,
     detalhes: str = "",
     contexto: dict | None = None,
+    run_id: str | None = None,
 ) -> None:
     """Notifica alerta. Dispara Telegram + grava JSONL, com throttle de 5 min por chave."""
-    _emitir(NIVEL_ALERTA, titulo, detalhes, None, contexto, com_throttle=True)
+    _emitir(NIVEL_ALERTA, titulo, detalhes, None, contexto, run_id, com_throttle=True)
 
 
 def info(
     titulo: str,
     detalhes: str = "",
     contexto: dict | None = None,
+    run_id: str | None = None,
 ) -> None:
     """Registra info. Grava JSONL; só envia Telegram se MONITOR_NIVEL=info."""
-    _emitir(NIVEL_INFO, titulo, detalhes, None, contexto, com_throttle=False)
+    _emitir(NIVEL_INFO, titulo, detalhes, None, contexto, run_id, com_throttle=False)

@@ -133,6 +133,31 @@ from telemonit import excepthook
 excepthook.instalar()  # qualquer exceção não tratada vira notificar.erro
 ```
 
+### Captura de stdout/stderr em rodadas (`capturar_terminal`)
+
+Context manager que envolve uma execução e dispara `notificar.erro` automaticamente em caso de exceção, incluindo as últimas linhas de stdout/stderr no payload:
+
+```python
+import telemonit
+
+with telemonit.capturar_terminal(run_id="run-2026-05-01-001"):
+    executar_pipeline()  # se levantar, notificar.erro é chamado e a exceção é re-levantada
+```
+
+A exceção **não** é engolida — é re-levantada para o caller decidir o que fazer (típico do `control_panel`: deixa o subprocess falhar e o orquestrador trata).
+
+### Identificando rodadas com `run_id`
+
+`run_id` é campo first-class no evento (no JSONL e no cabeçalho da mensagem do Telegram). Pode ser passado em qualquer função:
+
+```python
+telemonit.erro(titulo="Falha", run_id="run-123")
+telemonit.alerta(titulo="Quota alta", run_id="run-123")
+telemonit.info(titulo="OK", run_id="run-123")
+```
+
+O throttle de `alerta` separa runs diferentes — duas runs distintas com o mesmo título não bloqueiam uma à outra.
+
 ## Comportamento das funções
 
 | Função | Telegram | JSONL | Throttle |

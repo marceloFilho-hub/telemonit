@@ -1,6 +1,6 @@
 [project]
 name = "telemonit"
-version = "0.1.0"
+version = "0.2.0"
 description = "Biblioteca de notificações centralizadas (Telegram + Drive JSONL) para automações do Marcelo"
 readme = "README.md"
 requires-python = ">=3.10"
