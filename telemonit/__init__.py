@@ -2,6 +2,6 @@
 
 __version__ = "0.1.0"
 
-from . import notificar
+from . import excepthook, notificar
 
-__all__ = ["notificar", "__version__"]
+__all__ = ["notificar", "excepthook", "__version__"]
