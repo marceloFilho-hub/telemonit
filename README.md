@@ -133,6 +133,72 @@ from telemonit import excepthook
 excepthook.instalar()  # qualquer exceção não tratada vira notificar.erro
 ```
 
+### Bootstrap de observabilidade (loguru + telemonit em 1 linha)
+
+Adicionado em **0.3.0**. Configura logger estruturado, telemonit, excepthook e sink unificado com uma única chamada — ideal para entry points de pipelines:
+
+```python
+from telemonit.observability import bootstrap
+
+logger = bootstrap(modulo="zendesk", projeto="dp_admissao")
+
+logger.info("processando ticket %s", ticket_id)
+logger.warning("categoria bloqueada — pulando")  # → telemonit.alerta automático
+logger.error("falha no download")                # → telemonit.erro automático
+logger.exception("falha inesperada")             # erro + traceback
+raise RuntimeError("...")                        # excepthook captura
+```
+
+**O que o bootstrap faz:**
+
+- `loguru` configurado: stdout colorido + arquivo `logs/<modulo>.log` com rotação 10 MB e **retenção 1 dia (limpeza automática após 24h)**.
+- `telemonit.configurar(projeto=...)` + `telemonit.excepthook.instalar()`.
+- Sink customizado: `logger.warning` → `telemonit.alerta`, `logger.error/exception` → `telemonit.erro` (com `run_id = <modulo>-<EXECUCAO_ID curto>`).
+
+**Parâmetros principais:**
+
+| Parâmetro | Default | Descrição |
+|---|---|---|
+| `modulo` | obrigatório | Nome do entry point (vai pro nome do log e do `run_id`) |
+| `projeto` | obrigatório | Identificador do projeto (passado para `telemonit.configurar`) |
+| `retention` | `"1 day"` | Retenção dos `.log` antes de serem removidos |
+| `rotation` | `"10 MB"` | Rotação por tamanho (pode ser tempo: `"00:00"`) |
+| `logs_dir` | `<cwd>/logs` | Pasta dos logs (cai em `tempdir` se sem permissão) |
+| `instalar_excepthook` | `True` | Instala `telemonit.excepthook` automaticamente |
+
+**Instalação com loguru** (extras):
+
+```powershell
+pip install "telemonit[observability] @ git+https://github.com/marceloFilho-hub/telemonit.git"
+```
+
+Ou separadamente: `pip install loguru>=0.7`.
+
+Se `loguru` não estiver instalado, `bootstrap` retorna um logger fallback baseado em `print()` — projeto continua funcionando.
+
+### Fallback local quando Drive ou Telegram falham
+
+Adicionado em **0.3.0**. A lib agora **preserva o audit trail** mesmo com infraestrutura externa offline:
+
+| Cenário | Comportamento |
+|---|---|
+| `MONITOR_DRIVE_LOG_FOLDER` setado e Drive responde | grava no Drive normalmente |
+| `MONITOR_DRIVE_LOG_FOLDER` setado e Drive falha (offline, SA sem permissão) | **grava em `~/.telemonit/<projeto>/eventos_<projeto>_<YYYY-MM>.jsonl`** com metadata da falha |
+| `MONITOR_DRIVE_LOG_FOLDER` vazio | comportamento original — não grava nada |
+| Telegram falha (rede, token inválido, 4xx/5xx) | grava em `tempfile.gettempdir()/telemonit_fallback.log` para deixar rastro |
+| `_emitir` engole exceção interna | mesma coisa — fallback log local |
+
+> O fallback **só é ativado quando o Drive era esperado** (folder_id setado). Se você desabilitou o Drive (`MONITOR_DRIVE_LOG_FOLDER=`), nada muda.
+
+Para diagnosticar falhas:
+```powershell
+# Windows
+type %TEMP%\telemonit_fallback.log
+
+# JSONL local de eventos não enviados ao Drive
+type %USERPROFILE%\.telemonit\<projeto>\eventos_*.jsonl
+```
+
 ### Captura de stdout/stderr em rodadas (`capturar_terminal`)
 
 Context manager que envolve uma execução e dispara `notificar.erro` automaticamente em caso de exceção, incluindo as últimas linhas de stdout/stderr no payload:
