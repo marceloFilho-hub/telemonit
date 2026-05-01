@@ -1,0 +1,37 @@
+[project]
+name = "telemonit"
+version = "0.1.0"
+description = "Biblioteca de notificações centralizadas (Telegram + Drive JSONL) para automações do Marcelo"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Marcelo Leandro dos Santos", email = "marcelo.lsantos@bhub.ai" }
+]
+license = { text = "Proprietary" }
+dependencies = [
+    "httpx>=0.27",
+    "google-api-python-client>=2.120",
+    "google-auth>=2.28",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-mock>=3.12",
+]
+
+[project.scripts]
+monitor-periodico = "telemonit.scripts.monitor_periodico:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["telemonit*"]
+exclude = ["tests*", "scripts*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
