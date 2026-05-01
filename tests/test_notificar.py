@@ -2,11 +2,12 @@
 
 import pytest
 
-from telemonit import notificar, throttle
+from telemonit import config, notificar, throttle
 
 
 @pytest.fixture(autouse=True)
 def _config_basica(monkeypatch, tmp_path):
+    config.resetar()
     monkeypatch.setenv("MONITOR_PROJETO", "proj_teste")
     monkeypatch.setenv("MONITOR_TG_TOKEN", "token_xyz")
     monkeypatch.setenv("MONITOR_TG_CHAT_ID", "chat_abc")
@@ -20,6 +21,7 @@ def _config_basica(monkeypatch, tmp_path):
     yield
     throttle._memoria.clear()
     throttle._carregado = False
+    config.resetar()
 
 
 def test_erro_dispara_telegram_e_jsonl(mocker):
